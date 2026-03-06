@@ -24,41 +24,73 @@ All 4 data sources are covered by existing or easily-added MCPs. No Python agent
 
 ## Step 1: Add Missing MCPs
 
-### 1a. Slack MCP
+### Auth strategy: user signs in, no raw tokens
 
-**Package**: `korotovsky/slack-mcp-server`
-- No special permissions required — just a Slack bot token
-- Supports DMs, Group DMs, channel history, smart history fetch
+Both Slack and Google Calendar use an OAuth browser sign-in flow. Team members never manage bot tokens or GCP credentials — they just click "Authorize" once.
 
-**Setup**:
+---
+
+### 1a. Slack MCP — OAuth browser sign-in
+
+**Package**: `korotovsky/slack-mcp-server` in OAuth mode (not bot token mode)
+
+**One-time setup (Pedro only)**:
+1. [api.slack.com/apps](https://api.slack.com/apps) → Create App → From scratch → name: `Claude TAM Report`
+2. OAuth & Permissions → Redirect URLs → add `http://localhost:3000/callback`
+3. Bot Token Scopes: `channels:history`, `channels:read`, `groups:history`, `search:messages`, `users:read`
+4. Copy Client ID + Client Secret → store in 1Password
+
+**Per-user setup**:
 ```bash
-# Add to ~/.zshenv
-SLACK_BOT_TOKEN=xoxb-...   # bot token with: channels:history, search:messages, users:read
+# Add to ~/.zshenv (values from 1Password)
+export SLACK_CLIENT_ID=...
+export SLACK_CLIENT_SECRET=...
 ```
 
-**Add to `.mcp.json`** (yuno plugin or Claude Code global config):
+First run opens a browser → user clicks "Allow" → token stored locally. No bot token needed.
+
+**`.mcp.json` entry** (already configured):
 ```json
 "slack": {
   "command": "npx",
-  "args": ["-y", "@korotovsky/slack-mcp-server"],
-  "env": { "SLACK_BOT_TOKEN": "${SLACK_BOT_TOKEN}" }
+  "args": ["-y", "@korotovsky/slack-mcp-server",
+           "--client-id", "${SLACK_CLIENT_ID}",
+           "--client-secret", "${SLACK_CLIENT_SECRET}"],
+  "env": {
+    "SLACK_CLIENT_ID": "${SLACK_CLIENT_ID}",
+    "SLACK_CLIENT_SECRET": "${SLACK_CLIENT_SECRET}"
+  }
 }
 ```
 
-### 1b. Google Calendar MCP
+> **Fallback**: If OAuth has issues (known Claude Code DCR bugs), use a shared `SLACK_BOT_TOKEN` from 1Password.
+
+---
+
+### 1b. Google Calendar MCP — OAuth browser sign-in
 
 **Package**: `nspady/google-calendar-mcp`
-- Multi-account, multi-calendar support
-- Create/search/update events, free/busy queries
 
-**Setup**: OAuth2 credentials JSON (one-time browser flow or service account for automation)
+**One-time setup (Pedro only)**:
+1. [console.cloud.google.com](https://console.cloud.google.com) → new project → enable Google Calendar API
+2. Credentials → Create OAuth 2.0 Client ID → Desktop app → download JSON → rename `gcal-client.json`
+3. Share `gcal-client.json` via 1Password (this is the app identity, safe to share)
 
-**Add to `.mcp.json`**:
+**Per-user setup**:
+```bash
+mkdir -p ~/.config/tam-metrics
+cp gcal-client.json ~/.config/tam-metrics/gcal-client.json  # from 1Password
+export GOOGLE_CREDENTIALS_PATH=~/.config/tam-metrics/gcal-client.json
+```
+
+First run opens a browser → user signs in with their Google account → personal token auto-saved. No GCP access needed by end users.
+
+**`.mcp.json` entry** (already configured):
 ```json
 "google-calendar": {
   "command": "npx",
   "args": ["-y", "@nspady/google-calendar-mcp"],
-  "env": { "GOOGLE_CREDENTIALS_PATH": "/Users/pedro/.config/tam-metrics/gcal-credentials.json" }
+  "env": { "GOOGLE_CREDENTIALS_PATH": "${GOOGLE_CREDENTIALS_PATH}" }
 }
 ```
 
