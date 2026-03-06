@@ -48,6 +48,25 @@ Parse any flags from the user's message before starting.
 
 ## Execution Flow
 
+### STEP 0 — Check connections
+
+```bash
+source ~/.zshenv
+MISSING=""
+[[ -z "$DD_API_KEY" ]]              && MISSING="$MISSING\n  - Datadog (run /yuno-claude-plugin:login datadog)"
+[[ -z "$SLACK_CLIENT_ID" && -z "$SLACK_BOT_TOKEN" ]] && MISSING="$MISSING\n  - Slack (run /tam-login)"
+[[ -z "$GOOGLE_CREDENTIALS_PATH" ]] && MISSING="$MISSING\n  - Google Calendar (run /tam-login)"
+
+if [[ -n "$MISSING" ]]; then
+  echo "Note: some data sources not configured — report will use available sources only:"
+  echo -e "$MISSING"
+  echo ""
+  echo "Run /tam-login to set them up."
+fi
+```
+
+Proceed regardless. Slack and Calendar are enrichment — the report works without them.
+
 ### STEP 1 — Fetch Jira tickets from IMP2
 
 Use `searchJiraIssuesUsingJql` with cloudId `f97a69c7-4a91-4f0f-b71a-13457bb62267`.
